@@ -1,6 +1,9 @@
 from PIL import Image, ImageDraw
 import numpy as np
 import colorsys
+import subprocess as sp
+import numpy
+import re
 
 def rect(pos, imageDraw, color):
 	imageDraw.rectangle((pos[1] - 1, pos[2] - 1, pos[1] + 1, pos[2] + 1), fill=color)
@@ -84,7 +87,12 @@ def multiple(imagePath):
 
 def bandClusterDetection(imagePath, minVal, numberOfBands, bandThresholds):
 	orig = Image.open(imagePath)
-	hsv = orig.convert("HSV")
+
+	return processImage(orig, minVal, numberOfBands, bandThresholds)
+	
+
+def processImage(image, minVal, numberOfBands, bandThresholds):
+	hsv = image.convert("HSV")
 
 	bandWidth = hsv.width / numberOfBands
 
@@ -93,7 +101,7 @@ def bandClusterDetection(imagePath, minVal, numberOfBands, bandThresholds):
 	for bandIndex in range(hsv.width / bandWidth):
 		bandValues.append(processBand(hsv, minVal, bandIndex * bandWidth, bandWidth))
 
-	draw = ImageDraw.Draw(orig)
+	draw = ImageDraw.Draw(image)
 
 	linesYAxis  = [0 for x in range(numberOfBands)]
 
@@ -116,7 +124,7 @@ def bandClusterDetection(imagePath, minVal, numberOfBands, bandThresholds):
 			draw.line((band * bandWidth, linesYAxis[band], (band + 1) * bandWidth, linesYAxis[band]), "#F00", 2)	
 
 
-	orig.show()	
+	image.show()	
 
 
 def processBand(hsvImage, minVal, bandStartX, bandWidth):
@@ -136,8 +144,44 @@ def processBand(hsvImage, minVal, bandStartX, bandWidth):
 
 	return bandValues
 
+def processVideo(file):
+	width, height = get_size(file)
+
+	# open video file
+	command = [ 'ffmpeg', '-ss', '00:00:11', '-i', file, '-f', 'image2pipe', '-pix_fmt', 'rgb24', '-vcodec', 'rawvideo', '-']
+	pipe = sp.Popen(command, stdout = sp.PIPE, bufsize=10**8)
+
+	for x in range(30):
+		raw_image = pipe.stdout.read(width*height*3)
+		image_array = numpy.fromstring(raw_image, dtype=np.uint8).reshape(height, width, 3)
+
+		image = Image.fromarray(image_array, 'RGB')
+
+		processImage(image, 240, 2, [100, 100])
+
+	return [width, height]
 
 
 
-bandClusterDetection("img/4.jpg", 240, 4, [800, 700, 600, 40])
-bandClusterDetection("img/3.jpg", 240, 4, [800, 700, 600, 40])
+
+pattern = re.compile(r'Stream.*Video.*([0-9]{3,})x([0-9]{3,})')
+def get_size(file):
+    p = sp.Popen(['ffmpeg', '-i', file], stdout=sp.PIPE, stderr=sp.PIPE)
+
+    stdout, stderr = p.communicate()
+    match = pattern.search(stderr)
+
+    if match:
+        return int(match.groups()[0]), int(match.groups()[1])
+    else:
+        x = y = 0
+
+    return x, y
+
+
+
+# bandClusterDetection("img/4.jpg", 240, 4, [800, 700, 600, 40])
+# bandClusterDetection("img/3.jpg", 240, 4, [800, 700, 600, 40])
+# bandClusterDetection("img/2.png", 240, 4, [800, 700, 600, 40])
+
+print(processVideo("vid/1.wmv"))
