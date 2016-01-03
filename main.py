@@ -5,6 +5,11 @@ import subprocess as sp
 import numpy
 import re
 
+ffmpegCommand = "ffmpeg"
+
+videoWidth = 1920
+videoHeigh = 1080
+
 def rect(pos, imageDraw, color):
 	imageDraw.rectangle((pos[1] - 1, pos[2] - 1, pos[1] + 1, pos[2] + 1), fill=color)
 
@@ -145,13 +150,15 @@ def processBand(hsvImage, minVal, bandStartX, bandWidth):
 	return bandValues
 
 def processVideo(file):
-	width, height = get_size(file)
+	#width, height = get_size(file)
+	width = videoWidth
+	height = videoHeigh
 
 	# open video file
-	command = [ 'ffmpeg', '-ss', '00:00:11', '-i', file, '-f', 'image2pipe', '-pix_fmt', 'rgb24', '-vcodec', 'rawvideo', '-']
+	command = [ ffmpegCommand, '-ss', '00:00:00', '-i', file, '-f', 'image2pipe', '-pix_fmt', 'rgb24', '-vcodec', 'rawvideo', '-']
 	pipe = sp.Popen(command, stdout = sp.PIPE, bufsize=10**8)
 
-	for x in range(30):
+	for x in range(10):
 		raw_image = pipe.stdout.read(width*height*3)
 		image_array = numpy.fromstring(raw_image, dtype=np.uint8).reshape(height, width, 3)
 
@@ -166,12 +173,13 @@ def processVideo(file):
 
 pattern = re.compile(r'Stream.*Video.*([0-9]{3,})x([0-9]{3,})')
 def get_size(file):
-    p = sp.Popen(['ffmpeg', '-i', file], stdout=sp.PIPE, stderr=sp.PIPE)
+    p = sp.Popen([ffmpegCommand, '-i', file], stdout=sp.PIPE, stderr=sp.PIPE)
 
     stdout, stderr = p.communicate()
     match = pattern.search(stderr)
 
     if match:
+    	
         return int(match.groups()[0]), int(match.groups()[1])
     else:
         x = y = 0
@@ -184,4 +192,4 @@ def get_size(file):
 # bandClusterDetection("img/3.jpg", 240, 4, [800, 700, 600, 40])
 # bandClusterDetection("img/2.png", 240, 4, [800, 700, 600, 40])
 
-print(processVideo("vid/1.wmv"))
+print(processVideo("vid/vid2.wmv"))
